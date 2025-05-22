@@ -1,4 +1,4 @@
-# Proyecto FastAPI con Docker - Arquitectura de Microservicios
+# Kavak-IA - Proyecto FastAPI con Docker - Arquitectura de Microservicios
 
 Este proyecto es una API REST construida con FastAPI y Docker, utilizando una arquitectura de microservicios.
 
@@ -50,4 +50,4 @@ docker-compose down
 
 Una vez que la aplicación esté corriendo, puedes acceder a la documentación automática en:
 - Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc 
+- ReDoc: http://localhost:8000/redoc
