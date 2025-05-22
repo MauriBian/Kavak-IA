@@ -14,6 +14,7 @@ class Session(BaseModel):
     agent_id: str
     conversation_id: str
     messages: List[Message]
+    channel: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -40,5 +41,17 @@ class Session(BaseModel):
             {
                 "$push": {"messages": message},
                 "$set": {"updated_at": datetime.now(UTC)}
+            }
+        )
+
+    @classmethod
+    async def update(cls, db: Database, session_id: str, update_data: dict) -> None:
+        await db.sessions.update_one(
+            {"_id": ObjectId(session_id)},
+            {
+                "$set": {
+                    **update_data,
+                    "updated_at": datetime.now(UTC)
+                }
             }
         ) 

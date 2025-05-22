@@ -1,6 +1,35 @@
-version: '3.8'
-
 services:
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   agent:
     build:
       context: ./microservices/Agent
@@ -10,23 +39,47 @@ services:
     volumes:
       - ./microservices/Agent:/app
       - ./microservices/Agent/.env:/app/.env
+      - ./microservices/Agent/prompts:/app/prompts
     environment:
       - ENVIRONMENT=development
       - MONGODB_URL=mongodb://mongodb:27017
       - DATABASE_NAME=agent_db
       - COLLECTION_NAME=agents
       - PORT=3000
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_INPUT_QUEUE=receive_message
+      - RABBITMQ_OUTPUT_QUEUE=send_message
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/
+      - MONGODB_DB_NAME=agent_db
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - app-network
 
-  mongodb:
-    image: mongo:latest
+  message_handler:
+    build:
+      context: ./microservices/MessageHandler
+      dockerfile: Dockerfile
     ports:
-      - "27017:27017"
+      - "3001:3001"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_INPUT_QUEUE=receive_message
+      - RABBITMQ_OUTPUT_QUEUE=send_message
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     volumes:
-      - mongodb_data:/data/db
+      - ./microservices/MessageHandler:/app
     networks:
       - app-network
 
@@ -35,4 +88,5 @@ networks:
     driver: bridge
 
 volumes:
-  mongodb_data: 
+  mongodb_data:
+  rabbitmq_data: 

@@ -13,6 +13,7 @@ session_service = SessionService()
 class ChatRequest(BaseModel):
     message: str
     conversation_id: str
+    channel: Optional[str] = None
 
 class TrainingUrlRequest(BaseModel):
     url: str
@@ -74,7 +75,12 @@ async def train_agent_from_url(
 @router.post("/{agent_id}/chat")
 async def chat(agent_id: str, request: ChatRequest):
     try:
-        result = await agent_service.chat(agent_id, request.conversation_id, request.message)
+        result = await agent_service.chat(
+            agent_id, 
+            request.conversation_id, 
+            request.message,
+            request.channel
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) 
