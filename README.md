@@ -1,4 +1,4 @@
-# Kavak-IA - Proyecto FastAPI con Docker - Arquitectura de Microservicios
+Proyecto FastAPI con Docker - Arquitectura de Microservicios
 
 Este proyecto es una API REST construida con FastAPI y Docker, utilizando una arquitectura de microservicios.
 
