@@ -46,7 +46,7 @@ class QueueService:
             )
             return self._connection
         except Exception as e:
-            logging.error(f"Error al conectar con RabbitMQ: {str(e)}")
+            logging.error(f"Error connecting to RabbitMQ: {str(e)}")
             raise
 
     def setup_connection(self):
@@ -57,9 +57,9 @@ class QueueService:
                     self._channel = self._connection.channel()
                     self._channel.queue.declare(self.input_queue, durable=True)
                     self._channel.queue.declare(self.output_queue, durable=True)
-                    logging.info("Conexión con RabbitMQ establecida exitosamente")
+                    logging.info("Connection to RabbitMQ established successfully")
         except Exception as e:
-            logging.error(f"Error al conectar con RabbitMQ: {str(e)}")
+            logging.error(f"Error connecting to RabbitMQ: {str(e)}")
             raise
 
     def start_consuming(self):
@@ -76,7 +76,7 @@ class QueueService:
                         self._process_message(message)
                     )
                 except Exception as e:
-                    logging.error(f"Error en el procesamiento del mensaje: {str(e)}")
+                    logging.error(f"Error processing message: {str(e)}")
                     message.reject(requeue=True)
             
             self._channel.basic.consume(
@@ -85,27 +85,27 @@ class QueueService:
                 no_ack=False
             )
             
-            logging.info(f"Iniciando consumo de mensajes de la cola {self.input_queue}")
+            logging.info(f"Starting consumption of messages from queue {self.input_queue}")
             self._consuming = True
             self._channel.start_consuming()
         except Exception as e:
-            logging.error(f"Error al iniciar el consumo de mensajes: {str(e)}")
+            logging.error(f"Error starting message consumption: {str(e)}")
             raise
 
     async def _process_message(self, message):
         try:
             body = message.body
             message_data = json.loads(body)
-            logging.info(f"Nuevo mensaje recibido en la cola {self.input_queue}")
-            logging.info(f"Mensaje: {message_data}")
+            logging.info(f"New message received in queue {self.input_queue}")
+            logging.info(f"Message: {message_data}")
             
             to_number = message_data.get("to", "").replace("whatsapp:+", "")
             if not to_number:
-                raise ValueError("No se encontró el número de teléfono en el mensaje")
+                raise ValueError("No phone number found in message")
             
             agent_data = await Agent.find_by_phone(self.db, to_number)
             if not agent_data:
-                raise ValueError(f"No se encontró un agente con el número {to_number}")
+                raise ValueError(f"No agent found with phone number {to_number}")
             
             agent_id = str(agent_data["_id"])
             conversation_id = message_data.get("from", "").replace("whatsapp:+", "")
@@ -128,10 +128,10 @@ class QueueService:
             )
             
             message.ack()
-            logging.info(f"Mensaje procesado exitosamente")
+            logging.info(f"Message processed successfully")
             
         except Exception as e:
-            logging.error(f"Error al procesar mensaje: {str(e)}")
+            logging.error(f"Error processing message: {str(e)}")
             message.reject(requeue=False)
 
     def close(self):
@@ -145,8 +145,8 @@ class QueueService:
                 if self._loop and self._loop.is_running():
                     self._loop.stop()
             except Exception as e:
-                logging.error(f"Error al cerrar la conexión: {str(e)}")
+                logging.error(f"Error closing connection: {str(e)}")
             finally:
-                logging.info("Conexión con RabbitMQ cerrada")
+                logging.info("RabbitMQ connection closed")
                 self._closing = False
                 self._consuming = False 

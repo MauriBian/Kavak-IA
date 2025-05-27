@@ -51,7 +51,7 @@ async def health_check():
 async def whatsapp_webhook(request: Request):
     try:
         raw_body = await request.body()
-        logging.info(f"Received raw body: {raw_body.decode('utf-8')}")
+        logging.info(f"Raw body received: {raw_body.decode('utf-8')}")
         
         try:
             body = await request.json()

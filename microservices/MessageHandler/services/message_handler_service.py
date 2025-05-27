@@ -42,7 +42,7 @@ class MessageHandlerService:
             )
             return self._connection
         except Exception as e:
-            logging.error(f"Error al conectar con RabbitMQ: {str(e)}")
+            logging.error(f"Error connecting to RabbitMQ: {str(e)}")
             raise
 
     def setup_connection(self):
@@ -53,16 +53,16 @@ class MessageHandlerService:
                     self._channel = self._connection.channel()
                     self._channel.queue.declare(self.input_queue, durable=True)
                     self._channel.queue.declare(self.output_queue, durable=True)
-                    logging.info("Conexión con RabbitMQ establecida exitosamente")
+                    logging.info("RabbitMQ connection established successfully")
         except Exception as e:
-            logging.error(f"Error al establecer conexión con RabbitMQ: {str(e)}")
+            logging.error(f"Error establishing connection to RabbitMQ: {str(e)}")
             raise
 
     async def _process_message(self, message):
         try:
-            logging.info(f"Nuevo mensaje recibido en la cola {self.output_queue}")
+            logging.info(f"New message received in queue {self.output_queue}")
             message_data = json.loads(message.body)
-            logging.info(f"Mensaje recibido: {message_data}")
+            logging.info(f"Message received: {message_data}")
             
             channel = message_data.get("channel")
             from_number = message_data.get("conversation_id")
@@ -70,11 +70,11 @@ class MessageHandlerService:
             message_text = message_data.get("message", "")
             
             if not to_number or not message_text:
-                raise ValueError("Número de teléfono o mensaje faltante")
+                raise ValueError("Phone number or message missing")
             
             if channel == "whatsapp":
 
-                logging.info(f"Enviando mensaje de WhatsApp desde {from_number} a {to_number}")
+                logging.info(f"Sending WhatsApp message from {from_number} to {to_number}")
                 
                 whatsapp_response = self.whatsapp_service.send_message(
                     from_number=from_number,
@@ -83,14 +83,14 @@ class MessageHandlerService:
                 )
                 
                 if whatsapp_response["status"] == "error":
-                    raise Exception(f"Error al enviar mensaje de WhatsApp: {whatsapp_response['error']}")
+                    raise Exception(f"Error sending WhatsApp message: {whatsapp_response['error']}")
                 
-                logging.info(f"Mensaje de WhatsApp enviado exitosamente: {whatsapp_response['message_sid']}")
+                logging.info(f"WhatsApp message sent successfully: {whatsapp_response['message_sid']}")
             
             message.ack()
             
         except Exception as e:
-            logging.error(f"Error al procesar mensaje: {str(e)}")
+            logging.error(f"Error processing message: {str(e)}")
             message.reject(requeue=False)
 
     def start_consuming(self):
@@ -107,7 +107,7 @@ class MessageHandlerService:
                         self._process_message(message)
                     )
                 except Exception as e:
-                    logging.error(f"Error en el procesamiento del mensaje: {str(e)}")
+                    logging.error(f"Error processing message: {str(e)}")
                     message.reject(requeue=True)
             
             self._channel.basic.consume(
@@ -116,11 +116,11 @@ class MessageHandlerService:
                 no_ack=False
             )
             
-            logging.info(f"Iniciando consumo de mensajes de la cola: {self.output_queue}")
+            logging.info(f"Starting consumption of messages from queue: {self.output_queue}")
             self._consuming = True
             self._channel.start_consuming()
         except Exception as e:
-            logging.error(f"Error en el consumidor de RabbitMQ: {str(e)}")
+            logging.error(f"Error in RabbitMQ consumer: {str(e)}")
             raise
 
     def close(self):
@@ -134,9 +134,9 @@ class MessageHandlerService:
                 if self._loop and self._loop.is_running():
                     self._loop.stop()
             except Exception as e:
-                logging.error(f"Error al cerrar la conexión: {str(e)}")
+                logging.error(f"Error closing connection: {str(e)}")
             finally:
-                logging.info("Conexión con RabbitMQ cerrada")
+                logging.info("RabbitMQ connection closed")
                 self._closing = False
                 self._consuming = False
 
@@ -153,7 +153,7 @@ class MessageHandlerService:
                         'delivery_mode': 2
                     }
                 )
-                logging.info(f"Mensaje enviado a la cola: {self.input_queue}")
+                logging.info(f"Message sent to queue: {self.input_queue}")
         except Exception as e:
-            logging.error(f"Error al enviar mensaje a la cola: {str(e)}")
+            logging.error(f"Error sending message to queue: {str(e)}")
             raise 

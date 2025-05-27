@@ -1,104 +1,91 @@
-# Agente comercial Kavak
+# Kavak Chatbot
 
-## Requisitos Previos
+A microservices-based chatbot application using FastAPI, RabbitMQ, and MongoDB.
 
-- Python 3.8 o superior
-- Docker y Docker Compose
-- Cuenta de OpenAI con API key
-- Cuenta de Jina AI con API key
-- Cuenta en twilio
+## Prerequisites
 
-## Configuración del Entorno
+- Docker
+- Docker Compose
 
-1. Clona el repositorio:
+## Getting Started
+
+1. Clone the repository
 ```bash
-git clone [URL_DEL_REPOSITORIO]
-cd [NOMBRE_DEL_DIRECTORIO]
+git clone [repository-url]
+cd kavak-chatbot
 ```
 
-2. Configura los archivos de entorno:
-   - En cada microservicio, encontrarás un archivo `.env.sample`
-   - Copia el archivo `.env.sample` a `.env` en cada microservicio:
-```bash
-# Por ejemplo
-cd microservices/Agent
-cp .env.sample .env
-```
-
-3. Edita los archivos `.env` en cada microservicio con tus credenciales:
-```env
-# microservices/Agent/.env
-OPENAI_API_KEY=tu_api_key_de_openai
-JINA_API_KEY=tu_api_key_de_jina
-TWILIO_ACCOUNT_SID=tu_account_sid_de_twilio
-TWILIO_AUTH_TOKEN=tu_auth_token_de_twilio
-```
-
-## Instalación
-
-### Usando Docker (Recomendado)
-
-1. Construye y ejecuta los contenedores:
+2. Start the application
 ```bash
 docker-compose up --build
 ```
-## Estructura del Proyecto
 
+This will start the following services:
+- Agent service (FastAPI) on port 3000
+- Message Handler service on port 3001
+- RabbitMQ on ports 5672 (AMQP) and 15672 (Management UI)
+- MongoDB on port 27017
+
+## Services
+
+- **Agent Service**: Main chatbot service running on port 3000
+- **Message Handler**: Message processing service on port 3001
+- **RabbitMQ**: Message broker for inter-service communication
+- **MongoDB**: Database for storing agent data
+
+## Development
+
+The application uses Docker volumes for development, so any changes to the code will be reflected immediately without rebuilding the containers.
+
+## Environment Variables Configuration
+
+### Agent Service (.env file in microservices/Agent/.env)
+```env
+ENVIRONMENT=development
+MONGODB_URL=mongodb://mongodb:27017
+DATABASE_NAME=agent_db
+COLLECTION_NAME=agents
+PORT=3000
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_INPUT_QUEUE=receive_message
+RABBITMQ_OUTPUT_QUEUE=send_message
+MONGODB_URI=mongodb://mongodb:27017/
+MONGODB_DB_NAME=agent_db
 ```
-.
-├── microservices/
-│   └── Agent/
-│       └── services/
-│           └── agent_service.py
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-└── .env
+
+### Message Handler Service
+```env
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_INPUT_QUEUE=receive_message
+RABBITMQ_OUTPUT_QUEUE=send_message
 ```
 
-## Uso
+### RabbitMQ
+```env
+RABBITMQ_DEFAULT_USER=guest
+RABBITMQ_DEFAULT_PASS=guest
+```
 
-El servicio estará disponible en `http://localhost:3000` por defecto.
+### Configuration Steps
 
-### Endpoints del Microservicio Agent
+1. Create a `.env` file in the `microservices/Agent` directory with the Agent Service variables
+2. For production deployment:
+   - Change all default passwords
+   - Update the MongoDB connection strings with your production database
+   - Use secure credentials for RabbitMQ
+   - Consider using Docker secrets for sensitive information
+3. Create a ''
 
-#### Gestión de Agentes
-- `POST /agents`: Crear un nuevo agente
-  ```json
-  {
-    "name": "Nombre del Agente",
-    "brand": "Kavak",
-    "description": "Descripción del agente",
-    "tone": "Profesional y amigable",
-    "instructions": "Instrucciones específicas"
-  }
-  ```
-
-#### Chat y Mensajería
-- `POST /chat`: Iniciar una conversación con el chatbot
-  ```json
-  {
-    "agent_id": "id_del_agente",
-    "conversation_id": "id_de_conversacion",
-    "message": "Mensaje del usuario",
-    "channel": "whatsapp"
-  }
-  ```
-
-
-### Sistema de Colas (Queues)
-
-El sistema utiliza colas para manejar las comunicaciones asíncronas entre microservicios. Las principales colas son:
-
-1. **Cola de Mensajes Entrantes**
-   - Recibe mensajes de diferentes canales (WhatsApp)
-   - Procesa y distribuye los mensajes a los agentes correspondientes
-   - Maneja reintentos automáticos en caso de fallos
-
-2. **Cola de Respuestas**
-   - Gestiona las respuestas generadas por los agentes
-   - Asegura la entrega de mensajes a los canales correspondientes
-
-
-#### Configuración de Colas
-Las colas se configuran automáticamente al iniciar los servicios con Docker Compose. No se requiere configuración adicional.
+### Important Notes
+- All services are configured to use the default credentials for development
+- In production, make sure to:
+  - Use strong passwords
+  - Enable authentication for MongoDB
+  - Configure proper network security
+  - Use environment-specific configuration

@@ -39,7 +39,7 @@ def start_rabbitmq_consumer():
     try:
         rabbitmq_service.start_consuming()
     except Exception as e:
-        logging.error(f"Error in RabbitMQ consumer: {str(e)}")
+        logging.error(f"Error in RabbitMQ consumer: {str(e)}")  
 
 @app.on_event("startup")
 async def startup_event():
