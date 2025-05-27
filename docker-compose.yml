@@ -1,11 +1,23 @@
 services:
 
-  mongodb:
-    image: mongo:latest
+  message_handler:
+    build:
+      context: ./microservices/MessageHandler
+      dockerfile: Dockerfile
     ports:
-      - "27017:27017"
+      - "3001:3001"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_INPUT_QUEUE=receive_message
+      - RABBITMQ_OUTPUT_QUEUE=send_message
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     volumes:
-      - mongodb_data:/data/db
+      - ./microservices/MessageHandler:/app
     networks:
       - app-network
 

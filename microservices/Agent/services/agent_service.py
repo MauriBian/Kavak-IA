@@ -369,3 +369,28 @@ class AgentService:
             if temp_file_path and os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
             raise Exception(f"Error processing URL: {str(e)}")
+
+    async def process_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            if not all(key in message for key in ["agent_id", "conversation_id", "message"]):
+                raise ValueError("El mensaje debe contener agent_id, conversation_id y message")
+
+            response = await self.chat(
+                message["agent_id"],
+                message["conversation_id"],
+                message["message"]
+            )
+
+            return {
+                "conversation_id": response["conversation_id"],
+                "message": response["message"],
+                "status": "success"
+            }
+
+        except Exception as e:
+            logging.error(f"Error al procesar mensaje: {str(e)}")
+            return {
+                "conversation_id": message.get("conversation_id", "unknown"),
+                "message": f"Error: {str(e)}",
+                "status": "error"
+            }
