@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from services.agent_service import AgentService
 from models.agent import Agent
 from models.database import Database
+import pika
 
 
 load_dotenv()
@@ -150,3 +151,72 @@ class QueueService:
                 logging.info("Conexión con RabbitMQ cerrada")
                 self._closing = False
                 self._consuming = False 
+
+    def _ensure_connection(self):
+        if not self._connection or self._connection.is_closed:
+            try:
+                self._connection = self.connect()
+                self._channel = self._connection.channel()
+                self._channel.queue.declare(self.input_queue, durable=True)
+                self._channel.queue.declare(self.output_queue, durable=True)
+                logging.info("Successfully reconnected to RabbitMQ")
+            except Exception as e:
+                logging.error(f"Error connecting to RabbitMQ: {str(e)}")
+                raise
+
+    def process_message(self, ch, method, properties, body):
+        try:
+            message_data = json.loads(body)
+            logging.info(f"New message received in queue {self.input_queue}")
+            logging.info(f"Message: {message_data}")
+
+            if not message_data.get('to_number'):
+                raise ValueError("Phone number not found in message")
+
+            to_number = message_data['to_number']
+            agent = self.agent_service.get_agent_by_phone(to_number)
+            if not agent:
+                raise ValueError(f"No agent found with number {to_number}")
+
+            response = self.agent_service.process_message({
+                'agent_id': str(agent.id),
+                'conversation_id': message_data.get('conversation_id'),
+                'message': message_data['message']
+            })
+
+            if response['status'] == 'success':
+                self._channel.basic.publish(
+                    body=json.dumps(response),
+                    routing_key=self.output_queue,
+                    properties={
+                        'delivery_mode': 2
+                    }
+                )
+                logging.info(f"Message processed successfully")
+            else:
+                logging.error(f"Error processing message: {response['message']}")
+
+        except Exception as e:
+            logging.error(f"Error processing message: {str(e)}")
+
+    def start_consuming(self):
+        try:
+            self._ensure_connection()
+            logging.info(f"Starting message consumption from queue {self.input_queue}")
+            self._channel.basic.consume(
+                queue=self.input_queue,
+                on_message_callback=self.process_message,
+                auto_ack=True
+            )
+            self._channel.start_consuming()
+        except Exception as e:
+            logging.error(f"Error starting message consumption: {str(e)}")
+            raise
+
+    def close(self):
+        try:
+            if self._connection and self._connection.is_open:
+                self._connection.close()
+                logging.info("Connection closed successfully")
+        except Exception as e:
+            logging.error(f"Error closing connection: {str(e)}") 
