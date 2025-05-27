@@ -6,6 +6,8 @@ A microservices-based chatbot application using FastAPI, RabbitMQ, and MongoDB.
 
 - Docker
 - Docker Compose
+- Twilio Account (for WhatsApp integration)
+- Jina Account (for web scraping)
 
 ## Getting Started
 
@@ -15,7 +17,19 @@ git clone [repository-url]
 cd kavak-chatbot
 ```
 
-2. Start the application
+2. Configure environment variables:
+   - Copy `.env.sample` to `.env` in both microservices:
+   ```bash
+   # For Agent service
+   cd microservices/Agent
+   cp .env.sample .env
+
+   # For Message Handler service
+   cd ../MessageHandler
+   cp .env.sample .env
+   ```
+
+3. Start the application
 ```bash
 docker-compose up --build
 ```
@@ -54,6 +68,7 @@ RABBITMQ_INPUT_QUEUE=receive_message
 RABBITMQ_OUTPUT_QUEUE=send_message
 MONGODB_URI=mongodb://mongodb:27017/
 MONGODB_DB_NAME=agent_db
+JINA_API_KEY=your_jina_api_key
 ```
 
 ### Message Handler Service
@@ -64,6 +79,9 @@ RABBITMQ_USER=guest
 RABBITMQ_PASSWORD=guest
 RABBITMQ_INPUT_QUEUE=receive_message
 RABBITMQ_OUTPUT_QUEUE=send_message
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_NUMBER=your_twilio_phone
 ```
 
 ### RabbitMQ
@@ -75,12 +93,15 @@ RABBITMQ_DEFAULT_PASS=guest
 ### Configuration Steps
 
 1. Create a `.env` file in the `microservices/Agent` directory with the Agent Service variables
-2. For production deployment:
+2. Create a `.env` file in the `microservices/MessageHandler` directory with the Message Handler Service variables
+3. For production deployment:
    - Change all default passwords
    - Update the MongoDB connection strings with your production database
-   - Use secure credentials for RabbitMQ
+   - Use secure credentials for RabbitMQ and Twilio
+   - Configure Twilio account credentials (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
+   - Configure Jina API credentials (JINA_API_KEY)
    - Consider using Docker secrets for sensitive information
-3. Create a ''
+
 
 ### Important Notes
 - All services are configured to use the default credentials for development
