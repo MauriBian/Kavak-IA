@@ -1,53 +1,104 @@
-# Kavak-IA - Proyecto FastAPI con Docker - Arquitectura de Microservicios
+# Agente comercial Kavak
 
-Este proyecto es una API REST construida con FastAPI y Docker, utilizando una arquitectura de microservicios.
+## Requisitos Previos
 
-## Requisitos
+- Python 3.8 o superior
+- Docker y Docker Compose
+- Cuenta de OpenAI con API key
+- Cuenta de Jina AI con API key
+- Cuenta en twilio
 
-- Docker
-- Docker Compose
+## Configuración del Entorno
 
+1. Clona el repositorio:
+```bash
+git clone [URL_DEL_REPOSITORIO]
+cd [NOMBRE_DEL_DIRECTORIO]
+```
+
+2. Configura los archivos de entorno:
+   - En cada microservicio, encontrarás un archivo `.env.sample`
+   - Copia el archivo `.env.sample` a `.env` en cada microservicio:
+```bash
+# Por ejemplo
+cd microservices/Agent
+cp .env.sample .env
+```
+
+3. Edita los archivos `.env` en cada microservicio con tus credenciales:
+```env
+# microservices/Agent/.env
+OPENAI_API_KEY=tu_api_key_de_openai
+JINA_API_KEY=tu_api_key_de_jina
+TWILIO_ACCOUNT_SID=tu_account_sid_de_twilio
+TWILIO_AUTH_TOKEN=tu_auth_token_de_twilio
+```
+
+## Instalación
+
+### Usando Docker (Recomendado)
+
+1. Construye y ejecuta los contenedores:
+```bash
+docker-compose up --build
+```
 ## Estructura del Proyecto
 
 ```
 .
 ├── microservices/
 │   └── Agent/
-│       ├── main.py
-│       ├── requirements.txt
-│       └── Dockerfile
+│       └── services/
+│           └── agent_service.py
 ├── docker-compose.yml
-└── README.md
+├── Dockerfile
+├── requirements.txt
+└── .env
 ```
 
-## Microservicios
+## Uso
 
-### Agent
-- Puerto: 8000
-- Descripción: Microservicio principal de Agent
-- Endpoints:
-  - `GET /`: Mensaje de bienvenida
-  - `GET /health`: Verificación del estado del servicio
+El servicio estará disponible en `http://localhost:3000` por defecto.
 
-## Cómo ejecutar el proyecto
+### Endpoints del Microservicio Agent
 
-1. Construir y levantar los contenedores:
-```bash
-docker-compose up --build
-```
+#### Gestión de Agentes
+- `POST /agents`: Crear un nuevo agente
+  ```json
+  {
+    "name": "Nombre del Agente",
+    "brand": "Kavak",
+    "description": "Descripción del agente",
+    "tone": "Profesional y amigable",
+    "instructions": "Instrucciones específicas"
+  }
+  ```
 
-2. Para ejecutar en modo detached (background):
-```bash
-docker-compose up -d
-```
+#### Chat y Mensajería
+- `POST /chat`: Iniciar una conversación con el chatbot
+  ```json
+  {
+    "agent_id": "id_del_agente",
+    "conversation_id": "id_de_conversacion",
+    "message": "Mensaje del usuario",
+    "channel": "whatsapp"
+  }
+  ```
 
-3. Para detener los contenedores:
-```bash
-docker-compose down
-```
 
-## Documentación de la API
+### Sistema de Colas (Queues)
 
-Una vez que la aplicación esté corriendo, puedes acceder a la documentación automática en:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+El sistema utiliza colas para manejar las comunicaciones asíncronas entre microservicios. Las principales colas son:
+
+1. **Cola de Mensajes Entrantes**
+   - Recibe mensajes de diferentes canales (WhatsApp)
+   - Procesa y distribuye los mensajes a los agentes correspondientes
+   - Maneja reintentos automáticos en caso de fallos
+
+2. **Cola de Respuestas**
+   - Gestiona las respuestas generadas por los agentes
+   - Asegura la entrega de mensajes a los canales correspondientes
+
+
+#### Configuración de Colas
+Las colas se configuran automáticamente al iniciar los servicios con Docker Compose. No se requiere configuración adicional.

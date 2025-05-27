@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 from models.agent import Agent, KnowledgeBase
 from models.database import Database
 from models.session import Session, Message
@@ -12,9 +12,7 @@ import time
 import csv
 import io
 from pathlib import Path
-from agents import Runner
-from agents import Agent as OpenAIAgent
-from agents import FileSearchTool
+from agents import Runner, Agent as OpenAIAgent, FileSearchTool
 import requests
 import json
 
@@ -24,20 +22,14 @@ class AgentService:
     def __init__(self):
         self.db = Database()
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.process_prompt = self._load_prompt()
-        self.agent_prompt = self._load_agent_prompt()
+        self.process_prompt = self._load_prompt_file("process_content")
+        self.agent_prompt = self._load_prompt_file("agent")
         self.jina_api_key = os.getenv("JINA_API_KEY")
 
-    def _load_prompt(self) -> str:
-        prompt_path = Path("prompts/process_content.txt")
+    def _load_prompt_file(self, prompt_name: str) -> str:
+        prompt_path = Path(f"prompts/{prompt_name}.txt")
         if not prompt_path.exists():
-            raise Exception("Prompt file not found. Please ensure 'prompts/process_content.txt' exists.")
-        return prompt_path.read_text(encoding='utf-8')
-
-    def _load_agent_prompt(self) -> str:
-        prompt_path = Path("prompts/agent.txt")
-        if not prompt_path.exists():
-            raise Exception("Prompt file not found. Please ensure 'prompts/agent.txt' exists.")
+            raise Exception(f"Prompt file not found. Please ensure 'prompts/{prompt_name}.txt' exists.")
         return prompt_path.read_text(encoding='utf-8')
 
     def _format_agent_instructions(self, agent_data: Agent) -> str:
@@ -48,6 +40,22 @@ class AgentService:
             tone=agent_data.tone or "Professional, friendly, and helpful",
             instructions=agent_data.instructions or "Follow the standard guidelines for customer service and sales support."
         )
+
+    def _format_prompt(self, prompt_name: str, agent_data: Agent) -> str:
+        """
+        Load a prompt file and return its content.
+        
+        Args:
+            prompt_name: Name of the prompt file without extension
+            agent_data: Agent data containing company information
+            
+        Returns:
+            str: Prompt content
+        """
+        prompt_path = Path(f"prompts/{prompt_name}.txt")
+        if not prompt_path.exists():
+            raise Exception(f"Prompt file not found. Please ensure 'prompts/{prompt_name}.txt' exists.")
+        return prompt_path.read_text(encoding='utf-8')
 
     async def create_agent(self, agent: Agent) -> Agent:
         agent_dict = agent.model_dump()
@@ -60,64 +68,172 @@ class AgentService:
             return Agent(**agent_data)
         return None
 
-    async def chat(self, agent_id: str, conversation_id: str, message: str) -> dict:
+    def _create_support_agent(self, agent_data: Agent, history_text: str) -> OpenAIAgent:
+        tools = []
+        if agent_data.knowledgeBase and agent_data.knowledgeBase.file_ids:
+            tools.append(
+                FileSearchTool(
+                    max_num_results=3,
+                    vector_store_ids=[agent_data.knowledgeBase.id],
+                    include_search_results=False
+                )
+            )
+        
+        prompt_content = self._format_prompt("support_agent", agent_data)
+        instructions = f"{prompt_content}\n\nConversation Context:\n{history_text}"
+        
+        return OpenAIAgent(
+            name=f"{agent_data.name}_support",
+            instructions=instructions,
+            tools=tools
+        )
+
+    def _create_catalog_agent(self, agent_data: Agent, history_text: str) -> OpenAIAgent:
+        tools = []
+        if agent_data.knowledgeBase and agent_data.knowledgeBase.file_ids:
+            tools.append(
+                FileSearchTool(
+                    max_num_results=3,
+                    vector_store_ids=[agent_data.knowledgeBase.id],
+                    include_search_results=False
+                )
+            )
+        
+        prompt_content = self._format_prompt("catalog_agent", agent_data)
+        instructions = f"{prompt_content}\n\nConversation Context:\n{history_text}"
+        
+        return OpenAIAgent(
+            name=f"{agent_data.name}_catalog",
+            instructions=instructions,
+            tools=tools
+        )
+
+    def _create_financing_agent(self, agent_data: Agent, history_text: str) -> OpenAIAgent:
+        prompt_content = self._format_prompt("financing_agent", agent_data)
+        instructions = f"{prompt_content}\n\nConversation Context:\n{history_text}"
+        
+        return OpenAIAgent(
+            name=f"{agent_data.name}_financing",
+            instructions=instructions
+        )
+
+    def _create_translator_agent(self, agent_data: Agent) -> OpenAIAgent:
+        return OpenAIAgent(
+            name=f"{agent_data.name}_translator",
+            instructions=self._format_prompt("translator_agent", agent_data)
+        )
+
+    def _create_orchestrator_agent(self, agent_data: Agent, support_agent: OpenAIAgent, 
+                                 catalog_agent: OpenAIAgent, financing_agent: OpenAIAgent) -> OpenAIAgent:
+        return OpenAIAgent(
+            name=f"{agent_data.name}_orchestrator",
+            instructions=self._format_prompt("orchestrator_agent", agent_data),
+            tools=[
+                support_agent.as_tool(
+                    tool_name="support_info",
+                    tool_description="Get general information about the company and its services"
+                ),
+                catalog_agent.as_tool(
+                    tool_name="catalog_info",
+                    tool_description="Get information about available cars in the catalog"
+                ),
+                financing_agent.as_tool(
+                    tool_name="financing_info",
+                    tool_description="Calculate and provide information about financing plans"
+                )
+            ]
+        )
+
+    async def chat(self, agent_id: str, conversation_id: str, message: str, channel: str = None) -> dict:
         try:
             session_data = await Session.find_by_conversation_id(self.db, conversation_id)
             if not session_data:
                 session = Session(
                     agent_id=agent_id,
                     conversation_id=conversation_id,
-                    messages=[]
+                    messages=[],
+                    channel=channel
                 )
                 session_dict = session.model_dump()
                 created_session = await Session.create(self.db, session_dict)
                 session = Session(**created_session)
             else:
                 session = Session(**session_data)
+                if channel and not session.channel:
+                    await Session.update(
+                        self.db,
+                        str(session.id),
+                        {"channel": channel}
+                    )
             
             agent_data = await self.get_agent(agent_id)
             if not agent_data:
                 raise Exception("Agente no encontrado")
 
-            tools = []
-            if agent_data.knowledgeBase and agent_data.knowledgeBase.file_ids:
-                tools.append(
-                    FileSearchTool(
-                        max_num_results=3,
-                        vector_store_ids=[agent_data.knowledgeBase.id]
-                    )
-                )
+            try:
+                conversation_history = session.messages[-6:] if session.messages else []
+                history_text = "\n".join([f"{msg.role}: {msg.content}" for msg in conversation_history])
+                logging.info(f"Historial de conversación obtenido: {len(conversation_history)} mensajes")
+            except Exception as e:
+                logging.error(f"Error al obtener historial de conversación: {str(e)}")
+                history_text = "No hay historial de conversación previo."
 
-            conversation_history = session.messages[-6:] if session.messages else []
-            history_text = "\n".join([f"{msg.role}: {msg.content}" for msg in conversation_history])
+            support_agent = self._create_support_agent(agent_data, history_text)
+            catalog_agent = self._create_catalog_agent(agent_data, history_text)
+            financing_agent = self._create_financing_agent(agent_data, history_text)
+            
+            try:
+                prompt_content = self._format_prompt("translator_agent", agent_data)
+                translator_prompt = prompt_content.format(
+                    brand=agent_data.brand,
+                    description=agent_data.description,
+                    tone=agent_data.tone or "Professional, friendly, and helpful",
+                    history_text=history_text,
+                    user_message=message
+                )
+                logging.info("Prompt del traductor formateado correctamente")
+            except Exception as e:
+                logging.error(f"Error al formatear prompt del traductor: {str(e)}")
+                raise Exception(f"Error al formatear prompt del traductor: {str(e)}")
+            
+            translator_agent = self._create_translator_agent(agent_data)
+            translator_agent.instructions = translator_prompt
+            
+            orchestrator_agent = self._create_orchestrator_agent(
+                agent_data, 
+                support_agent, 
+                catalog_agent, 
+                financing_agent
+            )
 
             formatted_instructions = self._format_agent_instructions(agent_data)
             if history_text:
                 formatted_instructions += f"\n\nConversation history:\n{history_text}"
 
-            openai_agent = OpenAIAgent(
-                name=agent_data.name,
-                instructions=formatted_instructions,
-                model=agent_data.model,
-                tools=tools
-            )
-
             user_message = Message(role="user", content=message)
             await Session.add_message(self.db, str(session.id), user_message.model_dump())
 
-            result = await Runner.run(openai_agent, message)
-            assistant_message = result.final_output
+            orchestrator_result = await Runner.run(orchestrator_agent, message)
+            
+            translator_result = await Runner.run(
+                translator_agent,
+                f"Traduce la siguiente respuesta al español y formátala como si fueras un empleado de {agent_data.brand}:\n\n{orchestrator_result.final_output}"
+            )
+            
+            assistant_message = translator_result.final_output
 
             agent_message = Message(role="assistant", content=assistant_message)
             await Session.add_message(self.db, str(session.id), agent_message.model_dump())
 
             return {
                 "message": assistant_message,
-                "conversation_id": conversation_id
+                "conversation_id": conversation_id,
+                "channel": session.channel
             }
 
         except Exception as e:
             logging.error(f"Error en chat: {str(e)}")
+            logging.error(f"Detalles del error:", exc_info=True)
             raise Exception(f"Error en chat: {str(e)}")
 
     def _csv_to_json(self, csv_content: bytes) -> str:

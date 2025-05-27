@@ -1,25 +1,4 @@
-version: '3.8'
-
 services:
-  agent:
-    build:
-      context: ./microservices/Agent
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./microservices/Agent:/app
-      - ./microservices/Agent/.env:/app/.env
-    environment:
-      - ENVIRONMENT=development
-      - MONGODB_URL=mongodb://mongodb:27017
-      - DATABASE_NAME=agent_db
-      - COLLECTION_NAME=agents
-      - PORT=3000
-    depends_on:
-      - mongodb
-    networks:
-      - app-network
 
   mongodb:
     image: mongo:latest
@@ -30,9 +9,81 @@ services:
     networks:
       - app-network
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  agent:
+    build:
+      context: ./microservices/Agent
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./microservices/Agent:/app
+      - ./microservices/Agent/.env:/app/.env
+      - ./microservices/Agent/prompts:/app/prompts
+    environment:
+      - ENVIRONMENT=development
+      - MONGODB_URL=mongodb://mongodb:27017
+      - DATABASE_NAME=agent_db
+      - COLLECTION_NAME=agents
+      - PORT=3000
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_INPUT_QUEUE=receive_message
+      - RABBITMQ_OUTPUT_QUEUE=send_message
+      - MONGODB_URI=mongodb://mongodb:27017/
+      - MONGODB_DB_NAME=agent_db
+    depends_on:
+      mongodb:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  message_handler:
+    build:
+      context: ./microservices/MessageHandler
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_INPUT_QUEUE=receive_message
+      - RABBITMQ_OUTPUT_QUEUE=send_message
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./microservices/MessageHandler:/app
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
 
 volumes:
-  mongodb_data: 
+  mongodb_data:
+  rabbitmq_data: 
