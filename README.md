@@ -1,6 +1,6 @@
 # Kavak Chatbot
 
-A microservices-based chatbot application using FastAPI, RabbitMQ, and MongoDB.
+A microservices-based chatbot application using FastAPI, RabbitMQ, MongoDB, and Jina for web scraping.
 
 ## Prerequisites
 
@@ -18,10 +18,10 @@ cd kavak-chatbot
 ```
 
 2. Configure environment variables:
-   - Copy `.env.sample` to `.env` in both microservices:
+   - Copy `.env.sample` to `.env` in both services:
    ```bash
    # For Agent service
-   cd microservices/Agent
+   cd Agent
    cp .env.sample .env
 
    # For Message Handler service
@@ -55,7 +55,7 @@ The application uses Docker volumes for development, so any changes to the code 
 
 ## Environment Variables Configuration
 
-### Agent Service (.env file in microservices/Agent/.env)
+### Agent Service (.env file in Agent/.env)
 ```env
 ENVIRONMENT=development
 MONGODB_URL=mongodb://mongodb:27017

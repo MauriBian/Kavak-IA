@@ -2,7 +2,7 @@ services:
 
   message_handler:
     build:
-      context: ./microservices/MessageHandler
+      context: ./MessageHandler
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
@@ -17,7 +17,7 @@ services:
       rabbitmq:
         condition: service_healthy
     volumes:
-      - ./microservices/MessageHandler:/app
+      - ./MessageHandler:/app
     networks:
       - app-network
 
@@ -39,16 +39,27 @@ services:
       timeout: 3s
       retries: 5
 
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=agent_db
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
   agent:
     build:
-      context: ./microservices/Agent
+      context: ./Agent
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
-      - ./microservices/Agent:/app
-      - ./microservices/Agent/.env:/app/.env
-      - ./microservices/Agent/prompts:/app/prompts
+      - ./Agent:/app
+      - ./Agent/.env:/app/.env
+      - ./Agent/prompts:/app/prompts
     environment:
       - ENVIRONMENT=development
       - MONGODB_URL=mongodb://mongodb:27017
@@ -68,27 +79,6 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
-    networks:
-      - app-network
-
-  message_handler:
-    build:
-      context: ./microservices/MessageHandler
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=guest
-      - RABBITMQ_PASSWORD=guest
-      - RABBITMQ_INPUT_QUEUE=receive_message
-      - RABBITMQ_OUTPUT_QUEUE=send_message
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    volumes:
-      - ./microservices/MessageHandler:/app
     networks:
       - app-network
 
