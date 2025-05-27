@@ -7,6 +7,7 @@ import asyncio
 from typing import Dict, Any
 from dotenv import load_dotenv
 from services.whatsapp_service import WhatsAppService
+import pika
 
 load_dotenv()
 
@@ -32,17 +33,16 @@ class MessageHandlerService:
 
     def connect(self):
         try:
-            self._connection = amqpstorm.Connection(
-                hostname=self.rabbitmq_host,
+            self._connection = pika.BlockingConnection(pika.ConnectionParameters(
+                host=self.rabbitmq_host,
                 port=self.rabbitmq_port,
-                username=self.rabbitmq_user,
-                password=self.rabbitmq_password,
-                heartbeat=600,
-                timeout=300
-            )
-            return self._connection
+                credentials=pika.PlainCredentials(self.rabbitmq_user, self.rabbitmq_password)
+            ))
+            self._channel = self._connection.channel()
+            self._channel.queue_declare(queue=self.output_queue)
+            logging.info("Successfully connected to RabbitMQ")
         except Exception as e:
-            logging.error(f"Error al conectar con RabbitMQ: {str(e)}")
+            logging.error(f"Error connecting to RabbitMQ: {str(e)}")
             raise
 
     def setup_connection(self):
@@ -51,8 +51,8 @@ class MessageHandlerService:
                 if self._connection is None or self._connection.is_closed:
                     self._connection = self.connect()
                     self._channel = self._connection.channel()
-                    self._channel.queue.declare(self.input_queue, durable=True)
-                    self._channel.queue.declare(self.output_queue, durable=True)
+                    self._channel.queue_declare(self.input_queue, durable=True)
+                    self._channel.queue_declare(self.output_queue, durable=True)
                     logging.info("Conexión con RabbitMQ establecida exitosamente")
         except Exception as e:
             logging.error(f"Error al establecer conexión con RabbitMQ: {str(e)}")
@@ -96,31 +96,15 @@ class MessageHandlerService:
     def start_consuming(self):
         try:
             self.setup_connection()
-            self._channel.basic.qos(prefetch_count=self._prefetch_count)
-            
-            self._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self._loop)
-            
-            def on_message(message):
-                try:
-                    self._loop.run_until_complete(
-                        self._process_message(message)
-                    )
-                except Exception as e:
-                    logging.error(f"Error en el procesamiento del mensaje: {str(e)}")
-                    message.reject(requeue=True)
-            
-            self._channel.basic.consume(
+            logging.info(f"Starting message consumption from queue: {self.output_queue}")
+            self._channel.basic_consume(
                 queue=self.output_queue,
-                callback=on_message,
-                no_ack=False
+                on_message_callback=self._process_message,
+                auto_ack=True
             )
-            
-            logging.info(f"Iniciando consumo de mensajes de la cola: {self.output_queue}")
-            self._consuming = True
             self._channel.start_consuming()
         except Exception as e:
-            logging.error(f"Error en el consumidor de RabbitMQ: {str(e)}")
+            logging.error(f"Error in RabbitMQ consumer: {str(e)}")
             raise
 
     def close(self):
@@ -146,12 +130,10 @@ class MessageHandlerService:
                 if self._connection is None or self._connection.is_closed:
                     self.setup_connection()
                 
-                self._channel.basic.publish(
-                    body=json.dumps(message),
+                self._channel.basic_publish(
+                    exchange='',
                     routing_key=self.input_queue,
-                    properties={
-                        'delivery_mode': 2
-                    }
+                    body=json.dumps(message)
                 )
                 logging.info(f"Mensaje enviado a la cola: {self.input_queue}")
         except Exception as e:

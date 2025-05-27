@@ -31,7 +31,7 @@ def start_rabbitmq_consumer():
         message_handler_service.setup_connection()
         message_handler_service.start_consuming()
     except Exception as e:
-        logging.error(f"Error en el consumidor de RabbitMQ: {str(e)}")
+        logging.error(f"Error in RabbitMQ consumer: {str(e)}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -51,15 +51,15 @@ async def health_check():
 async def whatsapp_webhook(request: Request):
     try:
         raw_body = await request.body()
-        logging.info(f"Raw body recibido: {raw_body.decode('utf-8')}")
+        logging.info(f"Received raw body: {raw_body.decode('utf-8')}")
         
         try:
             body = await request.json()
-            logging.info(f"Mensaje de WhatsApp recibido (JSON): {json.dumps(body, indent=2)}")
+            logging.info(f"WhatsApp message received (JSON): {json.dumps(body, indent=2)}")
         except json.JSONDecodeError:
             form_data = await request.form()
             body = dict(form_data)
-            logging.info(f"Mensaje de WhatsApp recibido (Form): {json.dumps(body, indent=2)}")
+            logging.info(f"WhatsApp message received (Form): {json.dumps(body, indent=2)}")
             
 
             message_data = {
@@ -75,11 +75,11 @@ async def whatsapp_webhook(request: Request):
             }
             
             await message_handler_service.send_to_queue(message_data)
-            logging.info(f"Mensaje enviado a la cola: {json.dumps(message_data, indent=2)}")
+            logging.info(f"Message sent to queue: {json.dumps(message_data, indent=2)}")
         
         return {"status": "success"}
     except Exception as e:
-        logging.error(f"Error en webhook de WhatsApp: {str(e)}")
+        logging.error(f"Error in WhatsApp webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

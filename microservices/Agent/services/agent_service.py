@@ -168,15 +168,15 @@ class AgentService:
             
             agent_data = await self.get_agent(agent_id)
             if not agent_data:
-                raise Exception("Agente no encontrado")
+                raise Exception("Agent not found")
 
             try:
                 conversation_history = session.messages[-6:] if session.messages else []
                 history_text = "\n".join([f"{msg.role}: {msg.content}" for msg in conversation_history])
-                logging.info(f"Historial de conversación obtenido: {len(conversation_history)} mensajes")
+                logging.info(f"Conversation history retrieved: {len(conversation_history)} messages")
             except Exception as e:
-                logging.error(f"Error al obtener historial de conversación: {str(e)}")
-                history_text = "No hay historial de conversación previo."
+                logging.error(f"Error retrieving conversation history: {str(e)}")
+                history_text = "No previous conversation history."
 
             support_agent = self._create_support_agent(agent_data, history_text)
             catalog_agent = self._create_catalog_agent(agent_data, history_text)
@@ -191,10 +191,10 @@ class AgentService:
                     history_text=history_text,
                     user_message=message
                 )
-                logging.info("Prompt del traductor formateado correctamente")
+                logging.info("Translator prompt formatted correctly")
             except Exception as e:
-                logging.error(f"Error al formatear prompt del traductor: {str(e)}")
-                raise Exception(f"Error al formatear prompt del traductor: {str(e)}")
+                logging.error(f"Error formatting translator prompt: {str(e)}")
+                raise Exception(f"Error formatting translator prompt: {str(e)}")
             
             translator_agent = self._create_translator_agent(agent_data)
             translator_agent.instructions = translator_prompt
@@ -217,7 +217,7 @@ class AgentService:
             
             translator_result = await Runner.run(
                 translator_agent,
-                f"Traduce la siguiente respuesta al español y formátala como si fueras un empleado de {agent_data.brand}:\n\n{orchestrator_result.final_output}"
+                f"Translate the following response to Spanish and format it as if you were a {agent_data.brand} employee:\n\n{orchestrator_result.final_output}"
             )
             
             assistant_message = translator_result.final_output
@@ -232,9 +232,9 @@ class AgentService:
             }
 
         except Exception as e:
-            logging.error(f"Error en chat: {str(e)}")
-            logging.error(f"Detalles del error:", exc_info=True)
-            raise Exception(f"Error en chat: {str(e)}")
+            logging.error(f"Error in chat: {str(e)}")
+            logging.error(f"Error details:", exc_info=True)
+            raise Exception(f"Error in chat: {str(e)}")
 
     def _csv_to_json(self, csv_content: bytes) -> str:
         try:
@@ -304,12 +304,12 @@ class AgentService:
             response = requests.get(f"https://r.jina.ai/{url}", headers=headers)
             
             if response.status_code != 200:
-                raise Exception(f"Error al obtener contenido de la URL: {response.text}")
+                raise Exception(f"Error getting URL content: {response.text}")
             
             text_content = response.text
             
             if not text_content:
-                raise Exception("No se pudo obtener contenido de la URL")
+                raise Exception("Could not get content from URL")
             
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as temp_file:
                 temp_file.write(text_content)
@@ -324,7 +324,7 @@ class AgentService:
 
                 agent_data = await self.get_agent(agent_id)
                 if not agent_data:
-                    raise Exception("Agente no encontrado")
+                    raise Exception("Agent not found")
 
                 if agent_data.knowledgeBase and agent_data.knowledgeBase.id:
                     file_batch = self.client.vector_stores.file_batches.create(
@@ -373,7 +373,7 @@ class AgentService:
     async def process_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         try:
             if not all(key in message for key in ["agent_id", "conversation_id", "message"]):
-                raise ValueError("El mensaje debe contener agent_id, conversation_id y message")
+                raise ValueError("Message must contain agent_id, conversation_id and message")
 
             response = await self.chat(
                 message["agent_id"],
@@ -388,7 +388,7 @@ class AgentService:
             }
 
         except Exception as e:
-            logging.error(f"Error al procesar mensaje: {str(e)}")
+            logging.error(f"Error processing message: {str(e)}")
             return {
                 "conversation_id": message.get("conversation_id", "unknown"),
                 "message": f"Error: {str(e)}",
