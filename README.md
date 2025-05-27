@@ -40,6 +40,8 @@ This will start the following services:
 - RabbitMQ on ports 5672 (AMQP) and 15672 (Management UI)
 - MongoDB on port 27017
 
+The application will automatically initialize a default Kavak Commercial Assistant agent if it doesn't exist in the database.
+
 ## Services
 
 - **Agent Service**: Main chatbot service running on port 3000
@@ -89,19 +91,6 @@ TWILIO_PHONE_NUMBER=your_twilio_phone
 RABBITMQ_DEFAULT_USER=guest
 RABBITMQ_DEFAULT_PASS=guest
 ```
-
-### Configuration Steps
-
-1. Create a `.env` file in the `microservices/Agent` directory with the Agent Service variables
-2. Create a `.env` file in the `microservices/MessageHandler` directory with the Message Handler Service variables
-3. For production deployment:
-   - Change all default passwords
-   - Update the MongoDB connection strings with your production database
-   - Use secure credentials for RabbitMQ and Twilio
-   - Configure Twilio account credentials (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
-   - Configure Jina API credentials (JINA_API_KEY)
-   - Consider using Docker secrets for sensitive information
-
 
 ### Important Notes
 - All services are configured to use the default credentials for development

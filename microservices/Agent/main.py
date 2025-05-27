@@ -8,6 +8,7 @@ import logging
 from services.queue_service import QueueService
 from services.agent_service import AgentService
 import threading
+from scripts.init_default_agent import init_default_agent
 
 load_dotenv()
 
@@ -43,6 +44,11 @@ def start_rabbitmq_consumer():
 
 @app.on_event("startup")
 async def startup_event():
+    try:
+        await init_default_agent()
+    except Exception as e:
+        logging.error(f"Error initializing default agent: {str(e)}")
+    
     rabbitmq_thread = threading.Thread(target=start_rabbitmq_consumer)
     rabbitmq_thread.daemon = True
     rabbitmq_thread.start()
