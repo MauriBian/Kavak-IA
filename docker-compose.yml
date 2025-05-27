@@ -1,14 +1,23 @@
 services:
 
-  mongodb:
-    image: mongo:latest
+  message_handler:
+    build:
+      context: ./microservices/MessageHandler
+      dockerfile: Dockerfile
     ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
+      - "3001:3001"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin123
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_INPUT_QUEUE=receive_message
+      - RABBITMQ_OUTPUT_QUEUE=send_message
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./microservices/MessageHandler:/app
     networks:
       - app-network
 
@@ -52,7 +61,7 @@ services:
       - RABBITMQ_PASSWORD=guest
       - RABBITMQ_INPUT_QUEUE=receive_message
       - RABBITMQ_OUTPUT_QUEUE=send_message
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/
+      - MONGODB_URI=mongodb://mongodb:27017/
       - MONGODB_DB_NAME=agent_db
     depends_on:
       mongodb:

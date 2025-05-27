@@ -35,17 +35,9 @@ app.include_router(agent_router)
 rabbitmq_service = QueueService()
 agent_service = AgentService()
 
-def process_message(message):
-    try:
-        response = agent_service.process_message(message)
-        return response
-    except Exception as e:
-        logging.error(f"Error al procesar mensaje: {str(e)}")
-        return {"error": str(e)}
-
 def start_rabbitmq_consumer():
     try:
-        rabbitmq_service.start_consuming(process_message)
+        rabbitmq_service.start_consuming()
     except Exception as e:
         logging.error(f"Error en el consumidor de RabbitMQ: {str(e)}")
 

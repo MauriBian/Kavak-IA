@@ -27,6 +27,7 @@ class Agent(BaseModel):
     knowledgeBase: KnowledgeBase
     instructions: str
     model: str
+    phone_number: str 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Config:
@@ -40,6 +41,10 @@ class Agent(BaseModel):
     @classmethod
     async def find_by_id(cls, db: Database, agent_id: str) -> Optional[dict]:
         return await db.agents.find_one({"_id": ObjectId(agent_id)})
+
+    @classmethod
+    async def find_by_phone(cls, db: Database, phone_number: str) -> Optional[dict]:
+        return await db.agents.find_one({"phone_number": phone_number})
 
     @classmethod
     async def update(cls, db: Database, agent_id: str, update_data: dict) -> None:
