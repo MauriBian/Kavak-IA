@@ -1,140 +1,104 @@
-# Kavak Chatbot
+# Agente comercial Kavak
 
-A microservices-based chatbot system for Kavak, built with Python, FastAPI, and Docker. The system integrates with WhatsApp for customer communication and uses OpenAI for natural language processing.
+## Requisitos Previos
 
-## Architecture
+- Python 3.8 o superior
+- Docker y Docker Compose
+- Cuenta de OpenAI con API key
+- Cuenta de Jina AI con API key
+- Cuenta en twilio
 
-The system consists of three main microservices:
+## Configuración del Entorno
 
-1. **Agent Service** (Port 3000)
-   - Handles agent creation and management
-   - Processes chat messages
-   - Manages knowledge base
-   - Integrates with OpenAI for NLP
-
-2. **Message Handler Service** (Port 3001)
-   - Manages WhatsApp communication
-   - Handles message routing
-   - Implements retry logic for failed messages
-
-3. **RabbitMQ** (Ports 5672, 15672)
-   - Message broker for inter-service communication
-   - Manages message queues
-   - Provides message persistence
-
-## Prerequisites
-
-- Docker and Docker Compose
-- Python 3.8 or higher
-- OpenAI API key
-- Twilio account (for WhatsApp integration)
-- Jina AI API key (for vector search)
-
-## Environment Setup
-
-1. Clone the repository:
+1. Clona el repositorio:
 ```bash
-git clone [REPOSITORY_URL]
-cd [DIRECTORY_NAME]
+git clone [URL_DEL_REPOSITORIO]
+cd [NOMBRE_DEL_DIRECTORIO]
 ```
 
-2. Configure environment files:
-   - In each microservice, you'll find a `.env.sample` file
-   - Copy the `.env.sample` to `.env` in each microservice:
+2. Configura los archivos de entorno:
+   - En cada microservicio, encontrarás un archivo `.env.sample`
+   - Copia el archivo `.env.sample` a `.env` en cada microservicio:
 ```bash
-# For Agent service
+# Por ejemplo
 cd microservices/Agent
 cp .env.sample .env
-
-# For Message Handler service
-cd ../MessageHandler
-cp .env.sample .env
 ```
 
-3. Edit the `.env` files with your credentials:
+3. Edita los archivos `.env` en cada microservicio con tus credenciales:
 ```env
 # microservices/Agent/.env
-OPENAI_API_KEY=your_openai_api_key
-JINA_API_KEY=your_jina_api_key
-MONGODB_URI=mongodb://mongodb:27017/
-MONGODB_DB_NAME=agent_db
-
-# microservices/MessageHandler/.env
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
+OPENAI_API_KEY=tu_api_key_de_openai
+JINA_API_KEY=tu_api_key_de_jina
+TWILIO_ACCOUNT_SID=tu_account_sid_de_twilio
+TWILIO_AUTH_TOKEN=tu_auth_token_de_twilio
 ```
 
-## Installation
+## Instalación
 
-1. Build and run the containers:
+### Usando Docker (Recomendado)
+
+1. Construye y ejecuta los contenedores:
 ```bash
 docker-compose up --build
 ```
+## Estructura del Proyecto
 
-The services will be available at:
-- Agent Service: http://localhost:3000
-- Message Handler: http://localhost:3001
-- RabbitMQ Management: http://localhost:15672
+```
+.
+├── microservices/
+│   └── Agent/
+│       └── services/
+│           └── agent_service.py
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+└── .env
+```
 
-## API Endpoints
+## Uso
 
-### Agent Service
+El servicio estará disponible en `http://localhost:3000` por defecto.
 
-#### Agent Management
-- `POST /agents`: Create a new agent
+### Endpoints del Microservicio Agent
+
+#### Gestión de Agentes
+- `POST /agents`: Crear un nuevo agente
   ```json
   {
-    "name": "Agent Name",
+    "name": "Nombre del Agente",
     "brand": "Kavak",
-    "description": "Agent description",
-    "tone": "Professional and friendly",
-    "instructions": "Specific instructions"
+    "description": "Descripción del agente",
+    "tone": "Profesional y amigable",
+    "instructions": "Instrucciones específicas"
   }
   ```
 
-#### Chat
-- `POST /chat`: Start a conversation
+#### Chat y Mensajería
+- `POST /chat`: Iniciar una conversación con el chatbot
   ```json
   {
-    "agent_id": "agent_id",
-    "conversation_id": "conversation_id",
-    "message": "User message",
+    "agent_id": "id_del_agente",
+    "conversation_id": "id_de_conversacion",
+    "message": "Mensaje del usuario",
     "channel": "whatsapp"
   }
   ```
 
-## Queue System
 
-The system uses RabbitMQ for message handling:
+### Sistema de Colas (Queues)
 
-1. **Input Queue** (`receive_message`)
-   - Receives incoming WhatsApp messages
-   - Routes messages to appropriate agents
+El sistema utiliza colas para manejar las comunicaciones asíncronas entre microservicios. Las principales colas son:
 
-2. **Output Queue** (`send_message`)
-   - Handles outgoing messages
-   - Manages message delivery to WhatsApp
+1. **Cola de Mensajes Entrantes**
+   - Recibe mensajes de diferentes canales (WhatsApp)
+   - Procesa y distribuye los mensajes a los agentes correspondientes
+   - Maneja reintentos automáticos en caso de fallos
 
-## Development
+2. **Cola de Respuestas**
+   - Gestiona las respuestas generadas por los agentes
+   - Asegura la entrega de mensajes a los canales correspondientes
 
-### Project Structure
-```
-.
-├── microservices/
-│   ├── Agent/
-│   │   ├── services/
-│   │   │   ├── agent_service.py
-│   │   │   └── queue_service.py
-│   │   ├── controllers/
-│   │   │   └── agent_controller.py
-│   │   └── models/
-│   │       ├── agent.py
-│   │       └── database.py
-│   └── MessageHandler/
-│       ├── services/
-│       │   ├── whatsapp_service.py
-│       │   └── message_handler_service.py
-│       └── main.py
-├── docker-compose.yml
-└── requirements.txt
-```
+
+#### Configuración de Colas
+Las colas se configuran automáticamente al iniciar los servicios con Docker Compose. No se requiere configuración adicional.
